@@ -55,6 +55,14 @@ function post_customer_identify($pathdata, $data)
         return array("status" => "error", "message" => "insufficient data");
     }
 
+    $c = post_customer_check($pathdata, $data);
+    $customerno = $c["customerno"];
+    if (! $customerno) {
+        return array("status" => "error", "message" => "customer not found");
+    }
+
+    $result = db_query();
+
     return array("customerno" => null);
 }
 
