@@ -5,7 +5,7 @@
 /* für includes */
 define("ROOT_PATH", __DIR__ . '/');
 
-$available_modules = array("auth", "customer", "order");
+$available_modules = array("auth", "kunde", "auftrag");
 
 /* routing */
 
@@ -24,10 +24,9 @@ if ($target === false) {
 $uri = null;
 $query_string = null;
 $components = explode('?', $target, 2);
+$uri = $components[0];
 if (count($components) > 1) {
-    list($uri, $query_string) = $components;
-} else {
-    $uri = $components[0];
+    $query_string = $components[1];
 }
 
 $components = explode('/', $uri, 3);
@@ -57,7 +56,10 @@ $route = null;
 
 if (in_array($module, $available_modules)) {
     require_once "lib/".$module.".php";
-    $func = strtolower($method) . '_' . $module . '_' . $action;
+    $func = strtolower($method) . '_' . $module;
+    if ($action) {
+        $func .= '_' . $action;
+    }
     if (function_exists($func)) {
         $route = $func;
     }
@@ -69,8 +71,8 @@ if ($route === null) {
 }
 
 /*
- $route enthält eine funktion, die benutzt werden soll
- diese wird immer mit dem restlichen Pfad und mit dem request-body aufgerufen
+ $route enthält einen funktionsnamen, der aufgerufen werden soll
+ dieser wird immer mit dem restlichen Pfad und mit dem request-body aufgerufen
  */
 
 $response = array();
