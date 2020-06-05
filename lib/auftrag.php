@@ -10,11 +10,11 @@ function post_auftrag($path, $data)
         
     */
     $ret = array("status" => "error");
-    if (!isset($data->uuid)) {
+    if (!isset($data["uuid"])) {
         $ret["message"] = "missing uuid";
         return $ret;
     }
-    if (!isset($data->customerno)) {
+    if (!isset($data["customerno"])) {
         $ret["message"] = "missing customerno";
         return $ret;
     }

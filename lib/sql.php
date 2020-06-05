@@ -77,7 +77,7 @@ function __ensure_connected()
             $_db = new DB();
             $_db->query("SET NAMES utf8mb4");
             $_db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $_db->setAttribute(PDO::ATTR_AUTOCOMMIT, true);
+            $_db->setAttribute(PDO::ATTR_AUTOCOMMIT, false);
         } catch (PDOException $e) {
             global $debugmode;
             if ($debugmode) {

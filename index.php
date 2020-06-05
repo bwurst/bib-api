@@ -5,6 +5,8 @@
 /* für includes */
 define("ROOT_PATH", __DIR__ . '/');
 
+include ROOT_PATH . "vendor/autoload.php";
+
 $available_modules = array("auth", "kunde", "auftrag");
 
 /* routing */
@@ -48,7 +50,7 @@ if (count($components) > 2) {
 
 $data = null;
 if (isset($_SERVER["CONTENT_TYPE"]) && $_SERVER["CONTENT_TYPE"] == 'application/json') {
-    $data = json_decode(file_get_contents('php://input'));
+    $data = json_decode(file_get_contents('php://input'), true);
 }
 
 
