@@ -22,16 +22,19 @@ function telefonnummer($number, $country = "DE")
 
 function post_kunde_neu($path_data, $data) 
 {
+    api_ratelimit();
     /* 
     Legt einen neuen Kunden an.
     */
     if (!isset($data["kunde"])) {
-        return array("status" => "error", "message" => "insufficient data");
+        return array("status" => "error", "message" => "insufficient data 1");
     }
     $kdata = $data["kunde"];
     if (!(isset($kdata["nachname"]) || isset($kdata["firma"])) || !isset($data["uuid"])) {
-        return array("status" => "error", "message" => "insufficient data");
+        return array("status" => "error", "message" => "insufficient data 2");
     }
+
+
     $kunde = array(
         "kundennr" => null,
         "revision" => 0,
@@ -51,7 +54,7 @@ function post_kunde_neu($path_data, $data)
 
     $kunde["uuid"] = $data["uuid"];
     if (!isset($kdata["kontakt"]) || !is_array($kdata["kontakt"]) || !isset($kdata["kontakt"][0]["wert"])) {
-        return array("status" => "error", "message" => "insufficient data");
+        return array("status" => "error", "message" => "insufficient data 3");
     }
     
     foreach (array("firma", "vorname", "nachname", "adresse", "plz", "ort", "bio") as $field) {
@@ -61,9 +64,12 @@ function post_kunde_neu($path_data, $data)
     }
     foreach ($kdata["kontakt"] as $kontakt) {
         $k = array("id" => null, "typ" => "telefon", "wert" => null, "notizen" => null);
-        if (isset($kontakt["typ"]) && in_array($kontakt["typ"], array("telefon", "mobile"))) {
+        if (isset($kontakt["typ"]) && in_array($kontakt["typ"], array("telefon", "mobil"))) {
             $k["typ"] = $kontakt["typ"];
             $k["wert"] = telefonnummer($kontakt["wert"]);
+            if (! $k["wert"]) {
+                return array("status" => "error", "message" => "invalid phone number: ".$kontakt["wert"]);
+            }
         }
         if ($kontakt["typ"] == "email") {
             $k["typ"] = "email";
@@ -73,6 +79,11 @@ function post_kunde_neu($path_data, $data)
             $k["notizen"] = $kontakt["notizen"];
         }
         $kunde["kontakt"][] = $k;
+    }
+
+    $result = db_query("SELECT kundennr FROM kunde AS k LEFT JOIN kundenkontakt AS kk ON (k.id=kk.kunde) WHERE (k.nachname LIKE ? OR k.firma LIKE ?) AND kk.wert=?", array($kunde["nachname"], $kunde["firma"], $kunde["kontakt"][0]["wert"]));
+    if ($result->rowCount() > 0) {
+        return array("status" => "error", "message" => "duplicate");
     }
 
 
@@ -98,6 +109,7 @@ function post_kunde_neu($path_data, $data)
 
 function post_kunde_pruefen($pathdata, $data)
 {
+    api_ratelimit();
     /*
         Wenn Name und Telefonnummer in der Datenbank vorhanden sind, kann dem
         Kunde angezeigt werden, dass wir ihn kennen. Er muss dann keine Adresse 
@@ -145,6 +157,7 @@ function post_kunde_pruefen($pathdata, $data)
 
 function post_kunde_identifizieren($pathdata, $data)
 {
+    api_ratelimit();
     /*
         Bei Angabe von Name, Telefonnummer und Presstermin aus dem letzten Jahr 
         wird dem Kunde der komplette Kunden-Datensatz mitgeteilt mit UUID. Mit 
@@ -165,5 +178,55 @@ function post_kunde_identifizieren($pathdata, $data)
 
     return array("kundennr" => null);
 }
+
+
+function kunde_laden($kundennr) 
+{
+    $result = db_query("SELECT json FROM kunde WHERE kundennr=? AND aktuell=1", array($neu['kundennr']));
+    $row = $result->fetch();
+    $kunde = json_decode($row, true);
+    return $kunde;
+}
+
+
+
+function kunde_aendern($neu) 
+{
+    $aenderungen = false;
+    $kunde = kunde_laden($neu['kundennr']);
+    $fields = array("firma", "vorname", "nachname", "adresse", "plz", "ort", "bio", "biokontrollstelle", "notizen", "uuid");
+    foreach ($fields as $key) {
+        if ($neu[$field] != $kunde[$field]) {
+            $kunde[$field] = $neu[$field];
+            $aenderungen = true;
+        }
+    }
+    if (count($neu['kontakt']) != count($kunde['kontakt'])) {
+        $aenderungen = true;
+    }
+    foreach ($neu['kontakt'] as $idx => $kontakt) {
+        foreach (array("typ", "wert", "notizen") as $field) {
+            if ($kunde['kontakt'][$idx][$field] != $kontakt[$field]) {
+                $aenderungen = true;
+            }
+        }
+    }
+
+    if ($aenderungen) {
+        $neu['revision'] = $kunde['revision'] + 1;
+        db_query("START TRANSACTION");
+        db_query("INSERT INTO kunde (uuid, kundennr, revision, vorname, nachname, firma, json) VALUES (?, ?, ?, ?, ?, ?, ?)", array($neu["uuid"], $neu['kundennr'], $neu['revision'], $neu['vorname'], $neu['nachname'], $neu['firma'], json_encode($neu)));
+        $id = db_insert_id();
+
+        foreach ($neu["kontakt"] as $k) {
+            db_query("INSERT INTO kundenkontakt (kunde, typ, wert, notizen) VALUES (?, ?, ?, ?)", array($id, $k["typ"], $k["wert"], $k["notizen"]));
+            $k["id"] = db_insert_id();
+        }
+
+        db_query("UPDATE kunde SET aktuell=0 WHERE kundennr=? AND id!=?", array($neu["kundennr"], $id));
+        db_query("COMMIT");
+    }
+}
+
 
 

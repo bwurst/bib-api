@@ -6,6 +6,7 @@
 define("ROOT_PATH", __DIR__ . '/');
 
 include ROOT_PATH . "vendor/autoload.php";
+require_once ROOT_PATH."lib/api.php";
 
 $available_modules = array("auth", "kunde", "auftrag");
 
@@ -81,15 +82,8 @@ $response = array();
 try {
     $response = $route($pathdata, $data);
 } catch (Exception $e) {
-    $msg = $e->getMessage();
-    $response['status'] = 'error';
-    $response['message'] = $msg;
-}
-if (! isset($response['status'])) {
-    $response['status'] = 'success';
+    api_send_error('1', $e->getMessage());
 }
 
-header('Content-Type: application/json');
-echo json_encode($response);
-
+api_send($response);
 
