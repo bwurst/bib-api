@@ -1,5 +1,5 @@
 <?php
-
+require_once ROOT_PATH.'lib/sql.php';
 
 function api_ratelimit() {
     /* lösche alle was älter als 10 Minuten ist */
@@ -15,6 +15,25 @@ function api_ratelimit() {
     if ($row["count"] > 10) {
         api_send_error("429", "too many connections");
     }
+}
+
+function api_check_authtoken(&$data)
+{
+    if (!isset($data['authtoken'])) {
+        api_send_error('401', 'authtoken missing');
+    }
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $result = db_query("SELECT role FROM api_tokens WHERE authtoken=?", array($data['authtoken']));
+    if ($result->rowCount() < 1) {
+        api_send_error('403', 'unauthorized');
+    }
+    $res = $result->fetch();
+    $role = $res['role'];
+
+    db_query("UPDATE api_tokens SET lastuse=CURRENT_TIMESTAMP(), lastip=? WHERE authtoken=?", array($ip, $data['authtoken']));
+    db_query("COMMIT");
+    unset($data['authtoken']);
+    return $role;
 }
 
 

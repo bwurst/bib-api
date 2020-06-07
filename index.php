@@ -7,6 +7,7 @@ define("ROOT_PATH", __DIR__ . '/');
 
 include ROOT_PATH . "vendor/autoload.php";
 require_once ROOT_PATH."lib/api.php";
+require_once ROOT_PATH."lib/sql.php";
 
 $available_modules = array("auth", "kunde", "auftrag");
 
@@ -36,8 +37,7 @@ $components = explode('/', $uri, 3);
 
 $method = $_SERVER['REQUEST_METHOD'];
 if (! in_array($method, array('GET', 'POST', 'DELETE'))) {
-    echo 'invalid method';
-    die();
+    api_send_error('500', 'invalid method');
 }
 $action = null;
 $pathdata = null;
@@ -55,6 +55,10 @@ if (isset($_SERVER["CONTENT_TYPE"]) && $_SERVER["CONTENT_TYPE"] == 'application/
 }
 
 
+/* prüfe authtoken */
+api_check_authtoken($data);
+
+
 $route = null;
 
 if (in_array($module, $available_modules)) {
@@ -69,8 +73,7 @@ if (in_array($module, $available_modules)) {
 }
 
 if ($route === null) {
-    echo "illegal query";
-    die();
+    api_send_error('500', "illegal query");
 }
 
 /*
