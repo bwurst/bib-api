@@ -4,7 +4,7 @@ require_once ROOT_PATH.'lib/debug.php';
 
 function api_ratelimit() {
     /* lösche alle was älter als 10 Minuten ist */
-    db_query("DELETE FROM ratelimit WHERE ts < CURRENT_TIMESTAMP() - 600");
+    db_query("DELETE FROM ratelimit WHERE ts < TIMESTAMPADD(SECOND,-600,CURRENT_TIMESTAMP())");
     $remote = $_SERVER['REMOTE_ADDR'];
     // aktuellen Zugriff eintragen
     db_query("INSERT INTO ratelimit (ipaddr) VALUES (?)", array($remote));
@@ -13,7 +13,7 @@ function api_ratelimit() {
     $result = db_query("SELECT COUNT(*) AS `count` FROM ratelimit WHERE ipaddr = ?", array($remote));
     $row = $result->fetch();
     /* Wie viel ist "zu viel" in 10 Minuten? */
-    if ($row["count"] > 10) {
+    if ($row["count"] > 100) {
         api_send_error("429", "too many connections");
     }
 }
