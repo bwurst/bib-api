@@ -1,5 +1,6 @@
 <?php
 require_once ROOT_PATH.'lib/sql.php';
+require_once ROOT_PATH.'lib/debug.php';
 
 function api_ratelimit() {
     /* lösche alle was älter als 10 Minuten ist */
@@ -49,11 +50,15 @@ function api_send_error($errno, $message) {
 
 function api_send($response) 
 {
+    global $debug_content;
     if (! isset($response['status'])) {
         $response['status'] = 'success';
     }
     if (! isset($response['errno'])) {
         $response['errno'] = '0';
+    }
+    if ($debug_content) {
+        $response['debug_content'] = $debug_content;
     }
 
     header('Content-Type: application/json');

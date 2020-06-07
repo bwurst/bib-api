@@ -128,8 +128,19 @@ function post_kunde_pruefen($pathdata, $data)
     $ret["message"] = "not found";
     $ret["kundennr"] = null;
 
-    $result = db_query("SELECT k.kundennr, k.json FROM kunde AS k LEFT JOIN kundenkontakt AS kk ON (kk.kunde=k.id) WHERE k.aktuell = 1 AND (k.nachname LIKE ? OR k.firma LIKE ?) AND kk.wert = ?",
-        array($data["name"], $data["name"], telefonnummer($data["telefon"])));
+    $vorname = null;
+    $nachname = null;
+    $query = "SELECT k.kundennr, k.json FROM kunde AS k LEFT JOIN kundenkontakt AS kk ON (kk.kunde=k.id) WHERE k.aktuell = 1 AND (k.nachname LIKE ? OR k.firma LIKE ?) AND kk.wert = ?";
+    $query_params = array($data["name"], $data["name"], telefonnummer($data["telefon"]));
+    if (strpos($data["name"], ' ') !== false) {
+        // Wenn Leerzeichen enthalten, dann kann es auch Vorname und Nachname sein
+        $parts = explode(" ", $data['name']);
+        $nachname = array_pop($parts);
+        $vorname = implode(" ", $parts);
+        $query = "SELECT k.kundennr, k.json FROM kunde AS k LEFT JOIN kundenkontakt AS kk ON (kk.kunde=k.id) WHERE k.aktuell = 1 AND (k.nachname LIKE ? OR k.firma LIKE ? OR (k.vorname LIKE ? AND k.nachname LIKE ?)) AND kk.wert = ?";
+        $query_params = array($data["name"], $data["name"], $vorname, $nachname, telefonnummer($data["telefon"]));
+    }
+    $result = db_query($query, $query_params);
     if ($result->rowCount() > 0) {
         /* Wenn es mehr als einen passenden Kunden gibt, ist es eine Duplette, wir nehmen immer den ersten. */
         $line = $result->fetch();
@@ -142,7 +153,10 @@ function post_kunde_pruefen($pathdata, $data)
                 $ret[$field] = 'bekannt';
             }
         }
-        if (strtolower($kunde["nachname"]) == strtolower($data["name"])) {
+        if (strtolower($kunde["vorname"]) == strtolower($vorname)) {
+            $ret["vorname"] = $kunde["vorname"];
+        }
+        if (strtolower($kunde["nachname"]) == strtolower($data["name"]) || strtolower($kunde["nachname"]) == strtolower($nachname)) {
             $ret["nachname"] = $kunde["nachname"];
         }
         if (strtolower($kunde["firma"]) == strtolower($data["name"])) {

@@ -54,10 +54,15 @@ function post_auftrag_anlieferung($path, $data)
         $auftrag['kundenrevision'] = 0;
     }
     if (! $auftrag['kundenrevision']) {
-        // Kunden-Revision bezieht sich auf die aktuelle Version des Kunden-Datensatzes wenn der Kunde festgelegt wird.
-        $result = db_query("SELECT MAX(revision) AS revision FROM kunde WHERE kundennr=?", array($auftrag['kundennr']));
-        $line = $result->fetch();
-        $auftrag['kundenrevision'] = $line['revision'];
+        if ($auftrag['kundennr']) {
+            // Kunden-Revision bezieht sich auf die aktuelle Version des Kunden-Datensatzes wenn der Kunde festgelegt wird.
+            $result = db_query("SELECT MAX(revision) AS revision FROM kunde WHERE kundennr=?", array($auftrag['kundennr']));
+            $line = $result->fetch();
+            $auftrag['kundenrevision'] = $line['revision'];
+        } else {
+            $auftrag['kundennr'] = null;
+            $auftrag['kundenrevision'] = 0;
+        }
     }
 
     $fields = array("firma", "vorname", "nachname", "adresse", "plz", "ort", "telefon");
