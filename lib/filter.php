@@ -14,6 +14,9 @@ function filter($filter)
             $relation = '=';
             if (isset($f['relation'])) {
                 switch ($f['relation']) {
+                    case 'like':
+                        $relation = 'LIKE';
+                        break;
                     case 'unequal':
                         $relation = '!=';
                         break;
@@ -53,6 +56,9 @@ function filter($filter)
         $relation = '=';
         if (isset($filter['relation'])) {
             switch ($filter['relation']) {
+                case 'like':
+                    $relation = 'LIKE';
+                    break;
                 case 'unequal':
                     $relation = '!=';
                     break;
