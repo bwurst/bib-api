@@ -55,6 +55,17 @@ class DB extends PDO
     }
 }
 
+function db_escape_string($string)
+{
+    global $_db;
+    __ensure_connected();
+    $quoted = $_db->quote($string);
+    // entferne die quotes, damit wird es drop-in-Kompatibel zu db_escape_string()
+    $ret = substr($quoted, 1, -1);
+    return $ret;
+}
+
+
 
 function db_insert_id()
 {

@@ -56,7 +56,7 @@ if (isset($_SERVER["CONTENT_TYPE"]) && $_SERVER["CONTENT_TYPE"] == 'application/
 
 
 /* prüfe authtoken */
-api_check_authtoken($data);
+$role = api_check_authtoken($data);
 
 
 $route = null;

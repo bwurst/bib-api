@@ -2,6 +2,7 @@
 
 require_once ROOT_PATH.'lib/sql.php';
 require_once ROOT_PATH.'lib/kunde.php';
+require_once ROOT_PATH.'lib/filter.php';
 
 
 function post_auftrag_lesen($path, $data)
@@ -100,6 +101,29 @@ function post_auftrag_anlieferung($path, $data)
 }
 
 
+function post_auftrag_liste($path, $data)
+{
+    // FIXME: Konstanten wären gut
+    api_require_role(4);
+
+    if (!isset($data['filter'])) {
+        api_send_error(500, 'no filter specified');
+    }
+    list($sqlfilter, $sqlfilter_params) = filter($data['filter']);
+    $sorting = sorting($data);
+
+    $result = db_query("SELECT json FROM auftrag WHERE aktuell=1 AND ".$sqlfilter.' '.$sorting, $sqlfilter_params);
+    $ret = array(
+        "auftraege" => array()
+        );
+    while ($a = $result->fetch()) {
+        $ret["auftraege"][] = $a;
+    }
+    
+
+    return $ret;
+
+}
 
 
 

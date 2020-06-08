@@ -38,6 +38,17 @@ function api_check_authtoken(&$data)
 }
 
 
+function api_require_role($minrole)
+{
+    global $role;
+    if ($role >= $minrole) {
+        return $role;
+    } else {
+        api_send_error('403', 'insufficient privileges');
+    }
+}
+
+
 function api_send_error($errno, $message) {
     $response = array();
     $response['status'] = 'error';
