@@ -77,7 +77,20 @@ function post_auftrag_anlieferung($path, $data)
     $auftrag['bestellung'] = $data['bestellung'];
     $auftrag['originale'] = $data['originale'];
     $auftrag['name'] = $data['name'];
+    if (! $data['name']) {
+        if ($data['kundendaten']['firma']) {
+            $auftrag['name'] = $data['kundendaten']['firma'];
+        } else {
+            $auftrag['name'] = $data['kundendaten']['nachname'];
+            if ($data['kundendaten']['vorname']) {
+                $auftrag['name'] .= ', '.$data['kundendaten']['vorname'];
+            }
+        }
+    }
     $auftrag['telefon'] = $data['telefon'];
+    if (! $data['telefon']) {
+        $auftrag['telefon'] = $data['kundendaten']['telefon'];
+    }
     $auftrag['abholung'] = $data['abholung'];
     $auftrag['paletten'] = $data['paletten'];
     $auftrag['bio'] = $data['bio'];
@@ -117,7 +130,7 @@ function post_auftrag_liste($path, $data)
         "auftraege" => array()
         );
     while ($a = $result->fetch()) {
-        $ret["auftraege"][] = $a;
+        $ret["auftraege"][] = json_decode($a['json'], true);
     }
     
 
