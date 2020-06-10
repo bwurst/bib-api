@@ -185,7 +185,7 @@ function post_kunde_identifizieren($pathdata, $data)
     $c = post_kunde_pruefen($pathdata, $data);
     $kundennr = $c["kundennr"];
     if (! $kundennr) {
-        return array("status" => "error", "message" => "customer not found");
+        api_send_error("404", "customer not found");
     }
 
     $result = db_query(/* */);
@@ -194,11 +194,26 @@ function post_kunde_identifizieren($pathdata, $data)
 }
 
 
+function post_kunde_laden($path, $data)
+{
+    api_require_role(4); // FIXME: Konstanten!
+    $ret = array();
+    if (isset($data['kundennr'])) {
+        $ret['kunde'] = kunde_laden($data['kundennr']);
+    } else {
+        api_send_error(404, "Kunde nicht gefunden");
+    }
+    return $ret;
+}
+
+
+
+
 function kunde_laden($kundennr) 
 {
-    $result = db_query("SELECT json FROM kunde WHERE kundennr=? AND aktuell=1", array($neu['kundennr']));
+    $result = db_query("SELECT json FROM kunde WHERE kundennr=? AND aktuell=1", array($kundennr));
     $row = $result->fetch();
-    $kunde = json_decode($row, true);
+    $kunde = json_decode($row['json'], true);
     return $kunde;
 }
 
