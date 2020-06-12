@@ -5,28 +5,28 @@ require_once ROOT_PATH.'lib/kunde.php';
 require_once ROOT_PATH.'lib/filter.php';
 
 
-function post_auftrag_lesen($path, $data)
+function post_vorgang_lesen($path, $data)
 {
-    /* Liest den Auftrag aus mit dem übergebenen Handle */
+    /* Liest den Vorgang aus mit dem übergebenen Handle */
     if (!isset($data["handle"])) {
         return array("status" => "error", "message" => "missing handle");
     }
-    $result = db_query("SELECT json FROM auftrag WHERE handle=? AND aktuell=1", array($data['handle']));
+    $result = db_query("SELECT json FROM vorgang WHERE handle=? AND aktuell=1", array($data['handle']));
     if ($result->rowCount() < 1) {
-        $new = array("auftrag" => neuer_auftrag());
-        $new['auftrag']['handle'] = $data["handle"];
+        $new = array("vorgang" => neuer_vorgang());
+        $new['vorgang']['handle'] = $data["handle"];
         return $new;
     }
     $row = $result->fetch();
-    return array("auftrag" => json_decode($row['json'], true));
+    return array("vorgang" => json_decode($row['json'], true));
 }
 
 
 
-function post_auftrag_produktion($path, $data)
+function post_vorgang_produktion($path, $data)
 {
     /*
-        Ein Auftrag kann einem Produktionsschritt zugewiesen werden
+        Ein Vorgang kann einem Produktionsschritt zugewiesen werden
     */
     if (!isset($data['handle'])) {
         api_send_error(500, "no handle");
@@ -43,7 +43,7 @@ function post_auftrag_produktion($path, $data)
         // Alles andere kann nur vom Admin-Terminal gemacht werden.
         api_require_role(4); // FIXME: Konstanten!
     }
-    $result = db_query("SELECT MAX(position) AS position FROM auftrag_produktion WHERE ziel=? AND handle!=? AND ausgebucht IS NULL", 
+    $result = db_query("SELECT MAX(position) AS position FROM vorgang_produktion WHERE ziel=? AND handle!=? AND ausgebucht IS NULL", 
         array($data['ziel'], $data['handle']));
     $row = $result->fetch();
     $maxposition = $row['position'];
@@ -53,37 +53,37 @@ function post_auftrag_produktion($path, $data)
     if ($data['position'] > $maxposition + 1) {
         $data['position'] = $maxposition + 1;
     }
-    $result = db_query("SELECT id, position FROM auftrag_produktion WHERE handle=? AND ziel=? AND ausgebucht IS NULL", 
+    $result = db_query("SELECT id, position FROM vorgang_produktion WHERE handle=? AND ziel=? AND ausgebucht IS NULL", 
         array($data['handle'], $data['ziel']));
     if ($result->rowCount() > 1) {
-        api_send_error(500, 'Datenbank-Fehler: Auftrag mehrfach im Schritt '.$data['ziel'].' eingebucht.');
+        api_send_error(500, 'Datenbank-Fehler: Vorgang mehrfach im Schritt '.$data['ziel'].' eingebucht.');
     }
     if ($data['aktiv'] == 0 && $result->rowCount() == 0) {
-        api_send_error(500, "Ausbuchung gefordert, Auftrag ist aber nicht eingebucht!");
+        api_send_error(500, "Ausbuchung gefordert, Vorgang ist aber nicht eingebucht!");
     }
     $row = $result->fetch();
     if ($data['aktiv'] == 0) {
         // ausbuchen
-        db_query("UPDATE auftrag_produktion SET position=NULL, ausgebucht=CURRENT_TIMESTAMP() WHERE handle=? AND ziel=? AND ausgebucht IS NULL",
+        db_query("UPDATE vorgang_produktion SET position=NULL, ausgebucht=CURRENT_TIMESTAMP() WHERE handle=? AND ziel=? AND ausgebucht IS NULL",
             array($data['handle'], $data['ziel']));
         // folgende Aufträge zusammen rücken
-        db_query("UPDATE auftrag_produktion SET position=position-1 WHERE ziel=? AND position >= ? AND ausgebucht IS NULL",
+        db_query("UPDATE vorgang_produktion SET position=position-1 WHERE ziel=? AND position >= ? AND ausgebucht IS NULL",
             array($data['ziel'], $row['position']));
     } elseif ($result->rowCount() == 0) {
         if ($data['position'] <= $maxposition) {
             // Wir müssen Platz schaffen!
-            db_query("UPDATE auftrag_produktion SET position = position + 1 WHERE ziel=? AND position >= ? AND ausgebucht IS NULL",
+            db_query("UPDATE vorgang_produktion SET position = position + 1 WHERE ziel=? AND position >= ? AND ausgebucht IS NULL",
                 array($data['ziel'], $data['position']));
         }
         // Neu einbuchen
-        db_query("INSERT INTO auftrag_produktion (handle, ziel, position, eingebucht) VALUES (?, ?, ?, CURRENT_TIMESTAMP())",
+        db_query("INSERT INTO vorgang_produktion (handle, ziel, position, eingebucht) VALUES (?, ?, ?, CURRENT_TIMESTAMP())",
             array($data['handle'], $data['ziel'], $data['position']));
     } elseif ($row['position'] != $data['position']) {
         // position ändern
         // zuerst die anderen Einträge zusammen schieben.
-        db_query("UPDATE auftrag_produktion SET position=position-1 WHERE ziel=? AND position > ? AND ausgebucht IS NULL",
+        db_query("UPDATE vorgang_produktion SET position=position-1 WHERE ziel=? AND position > ? AND ausgebucht IS NULL",
             array($data['ziel'], $row['position']));
-        $result = db_query("SELECT MAX(position) AS position FROM auftrag_produktion WHERE ziel=? AND handle!=? AND ausgebucht IS NULL",
+        $result = db_query("SELECT MAX(position) AS position FROM vorgang_produktion WHERE ziel=? AND handle!=? AND ausgebucht IS NULL",
             array($data['ziel'], $data['handle']));
         $myrow = $result->fetch();
         $maxposition = $myrow['position'] + 1;
@@ -92,11 +92,11 @@ function post_auftrag_produktion($path, $data)
         }
         // an der neuen Position Platz schaffen
         if ($data['position'] <= $maxposition) {
-            db_query("UPDATE auftrag_produktion SET position = position + 1 WHERE ziel=? AND position >= ? AND ausgebucht IS NULL",
+            db_query("UPDATE vorgang_produktion SET position = position + 1 WHERE ziel=? AND position >= ? AND ausgebucht IS NULL",
                 array($data['ziel'], $data['position']));
         }
         // dann auf die neue position schieben
-        db_query("UPDATE auftrag_produktion SET position=? WHERE handle=? AND ziel=? AND ausgebucht IS NULL",
+        db_query("UPDATE vorgang_produktion SET position=? WHERE handle=? AND ziel=? AND ausgebucht IS NULL",
             array($data['position'], $data['handle'], $data['ziel']));
     }
     db_query("COMMIT");
@@ -104,42 +104,42 @@ function post_auftrag_produktion($path, $data)
 }
 
 
-function post_auftrag_anlieferung($path, $data)
+function post_vorgang_anlieferung($path, $data)
 {
     /* 
-        Erstellt einen neuen Auftrag oder ändert einen bestehenden
+        Erstellt einen neuen Vorgang oder ändert einen bestehenden
         Das Handle muss vom Client übertragen werden, damit Übermittlungsdoppel erkannt werden, 
-        das gilt auch als Authentifizierung bei Änderungen für diesen Auftrag.
+        das gilt auch als Authentifizierung bei Änderungen für diesen Vorgang.
     */
     // FIXME: hier sollten nicht alle Änderungen erlaubt sein
-    auftrag_aendern($data);
+    vorgang_aendern($data);
 }
 
 
-function post_auftrag_aendern($path, $data)
+function post_vorgang_aendern($path, $data)
 {
     api_require_role(4); // FIXME: Konstanten
-    auftrag_aendern($data);
+    vorgang_aendern($data);
 }
 
 
-function auftrag_aendern($data, $admin = false) 
+function vorgang_aendern($data, $admin = false) 
 {
     /*
-        Ändern eines Auftrags
+        Ändern eines Vorgangs
     */
     if (!isset($data["handle"])) {
         return array("status" => "error", "message" => "missing handle");
     }
-    $auftrag = neuer_auftrag();
-    $auftrag['handle'] = $data['handle'];
+    $vorgang = neuer_vorgang();
+    $vorgang['handle'] = $data['handle'];
     $mode = 'new';
-    db_query("LOCK TABLE auftrag WRITE, kunde READ");
-    $result = db_query("SELECT id, revision, status, json FROM auftrag WHERE handle=? AND aktuell=1", array($data['handle']));
+    db_query("LOCK TABLE vorgang WRITE, kunde READ");
+    $result = db_query("SELECT id, revision, status, json FROM vorgang WHERE handle=? AND aktuell=1", array($data['handle']));
     if ($result->rowCount() > 0) {
         $row = $result->fetch();
-        $auftrag = json_decode($row['json'], true);
-        if ($admin || !$auftrag['status']['gepresst']) {
+        $vorgang = json_decode($row['json'], true);
+        if ($admin || !$vorgang['status']['gepresst']) {
             // Produktion noch nicht begonnen, Update noch möglich.
             $mode = 'update';
         } else {
@@ -149,84 +149,84 @@ function auftrag_aendern($data, $admin = false)
     }
 
     // Kundennr kann geändert werden, dann aber revision neu auslesen
-    if (isset($data['kundennr']) && $auftrag['kundennr'] != $data['kundennr']) {
-        $auftrag['kundennr'] = $data['kundennr'];
-        $auftrag['kundenrevision'] = 0;
+    if (isset($data['kundennr']) && $vorgang['kundennr'] != $data['kundennr']) {
+        $vorgang['kundennr'] = $data['kundennr'];
+        $vorgang['kundenrevision'] = 0;
     }
-    if (! $auftrag['kundenrevision']) {
-        if ($auftrag['kundennr']) {
+    if (! $vorgang['kundenrevision']) {
+        if ($vorgang['kundennr']) {
             // Kunden-Revision bezieht sich auf die aktuelle Version des Kunden-Datensatzes wenn der Kunde festgelegt wird.
-            $result = db_query("SELECT MAX(revision) AS revision FROM kunde WHERE kundennr=?", array($auftrag['kundennr']));
+            $result = db_query("SELECT MAX(revision) AS revision FROM kunde WHERE kundennr=?", array($vorgang['kundennr']));
             $line = $result->fetch();
-            $auftrag['kundenrevision'] = $line['revision'];
+            $vorgang['kundenrevision'] = $line['revision'];
         } else {
-            $auftrag['kundennr'] = null;
-            $auftrag['kundenrevision'] = 0;
+            $vorgang['kundennr'] = null;
+            $vorgang['kundenrevision'] = 0;
         }
     }
 
     $fields = array("firma", "vorname", "nachname", "adresse", "plz", "ort", "telefon");
     foreach ($fields as $f) {
         if (isset($data['kundendaten'][$f])) {
-            $auftrag['kundendaten'][$f] = $data['kundendaten'][$f];
+            $vorgang['kundendaten'][$f] = $data['kundendaten'][$f];
         }
     }
     
-    //$auftrag["status"] = $data['status'];
+    //$vorgang["status"] = $data['status'];
     $status = array();
     if (is_array($data["status"])) {
-        foreach (array_keys($auftrag["status"]) as $key) {
+        foreach (array_keys($vorgang["status"]) as $key) {
             if (isset($data["status"][$key])) {
                 $status[] = $key;
-                $auftrag["status"][$key] = $data["status"][$key];
+                $vorgang["status"][$key] = $data["status"][$key];
             } else {
-                $auftrag["status"][$key] = null;
+                $vorgang["status"][$key] = null;
             }
         }
     } else {
         api_send_error(500, 'invalid status object');
     }
     $status = implode(',', $status);
-    $auftrag['bestellung'] = $data['bestellung'];
-    $auftrag['originale'] = $data['originale'];
-    $auftrag['name'] = $data['name'];
+    $vorgang['bestellung'] = $data['bestellung'];
+    $vorgang['originale'] = $data['originale'];
+    $vorgang['name'] = $data['name'];
     if (! $data['name']) {
         if ($data['kundendaten']['firma']) {
-            $auftrag['name'] = $data['kundendaten']['firma'];
+            $vorgang['name'] = $data['kundendaten']['firma'];
         } else {
-            $auftrag['name'] = $data['kundendaten']['nachname'];
+            $vorgang['name'] = $data['kundendaten']['nachname'];
             if ($data['kundendaten']['vorname']) {
-                $auftrag['name'] .= ', '.$data['kundendaten']['vorname'];
+                $vorgang['name'] .= ', '.$data['kundendaten']['vorname'];
             }
         }
     }
-    $auftrag['telefon'] = $data['telefon'];
+    $vorgang['telefon'] = $data['telefon'];
     if (! $data['telefon']) {
-        $auftrag['telefon'] = $data['kundendaten']['telefon'];
+        $vorgang['telefon'] = $data['kundendaten']['telefon'];
     }
-    $auftrag['abholung'] = $data['abholung'];
-    $auftrag['paletten'] = $data['paletten'];
-    $auftrag['bio'] = $data['bio'];
-    $auftrag['biokontrollstelle'] = $data['biokontrollstelle'];
-    $auftrag['summe_betrag'] = $data['summe_betrag'];
-    $auftrag['summe_liter'] = $data['summe_liter'];
-    $auftrag['posten'] = $data['posten'];
+    $vorgang['abholung'] = $data['abholung'];
+    $vorgang['paletten'] = $data['paletten'];
+    $vorgang['bio'] = $data['bio'];
+    $vorgang['biokontrollstelle'] = $data['biokontrollstelle'];
+    $vorgang['summe_betrag'] = $data['summe_betrag'];
+    $vorgang['summe_liter'] = $data['summe_liter'];
+    $vorgang['posten'] = $data['posten'];
 
     /* FIXME: Syntax- und Plausibilitätsprüfungen gehören hier hin. */
 
-    $auftrag['revision'] += 1;
+    $vorgang['revision'] += 1;
 
     db_query("START TRANSACTION");
-    db_query("INSERT INTO auftrag (handle, revision, status, anlieferdatum, produktionsdatum, kundennr, kundenrevision, bestellung_json, json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", array(
-            $auftrag['handle'], $auftrag['revision'], $status, $auftrag["status"]["angeliefert"], $auftrag["status"]["abgefuellt"], $auftrag['kundennr'], $auftrag['kundenrevision'], json_encode($auftrag['bestellung']), json_encode($auftrag)));
+    db_query("INSERT INTO vorgang (handle, revision, status, anlieferdatum, produktionsdatum, kundennr, kundenrevision, bestellung_json, json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", array(
+            $vorgang['handle'], $vorgang['revision'], $status, $vorgang["status"]["angeliefert"], $vorgang["status"]["abgefuellt"], $vorgang['kundennr'], $vorgang['kundenrevision'], json_encode($vorgang['bestellung']), json_encode($vorgang)));
     $id = db_insert_id();
-    db_query("UPDATE auftrag SET aktuell=0 WHERE handle=? AND id != ?", array($auftrag['handle'], $id));
+    db_query("UPDATE vorgang SET aktuell=0 WHERE handle=? AND id != ?", array($vorgang['handle'], $id));
     db_query("COMMIT");
     db_query("UNLOCK TABLES");
 }
 
 
-function post_auftrag_liste($path, $data)
+function post_vorgang_liste($path, $data)
 {
     // FIXME: Konstanten wären gut
     api_require_role(4);
@@ -236,10 +236,10 @@ function post_auftrag_liste($path, $data)
         "produktion" => array(),
         );
     if (isset($data['ziel'])) {
-        $result = db_query("SELECT handle, position, eingebucht FROM auftrag_produktion WHERE ziel=? AND ausgebucht IS NULL ORDER BY position ASC",
+        $result = db_query("SELECT handle, position, eingebucht FROM vorgang_produktion WHERE ziel=? AND ausgebucht IS NULL ORDER BY position ASC",
             array($data['ziel']));
         while ($row = $result->fetch()) {
-            $aresult = db_query("SELECT json FROM auftrag WHERE aktuell=1 AND handle=?",
+            $aresult = db_query("SELECT json FROM vorgang WHERE aktuell=1 AND handle=?",
                 array($row['handle']));
             $a = $aresult->fetch();
             $ret["auftraege"][] = json_decode($a['json'], true);
@@ -250,7 +250,7 @@ function post_auftrag_liste($path, $data)
         list($sqlfilter, $sqlfilter_params) = filter($data['filter']);
         $sorting = sorting($data);
 
-        $result = db_query("SELECT json FROM auftrag WHERE aktuell=1 AND ".$sqlfilter.' '.$sorting, $sqlfilter_params);
+        $result = db_query("SELECT json FROM vorgang WHERE aktuell=1 AND ".$sqlfilter.' '.$sorting, $sqlfilter_params);
         while ($a = $result->fetch()) {
             $ret["auftraege"][] = json_decode($a['json'], true);
         }
@@ -265,7 +265,7 @@ function post_auftrag_liste($path, $data)
 
 
 
-function neuer_auftrag() {
+function neuer_vorgang() {
     $ret = array(
         "handle" => null,
         "revision" => 0,

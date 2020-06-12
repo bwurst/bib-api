@@ -9,7 +9,7 @@ include ROOT_PATH . "vendor/autoload.php";
 require_once ROOT_PATH."lib/api.php";
 require_once ROOT_PATH."lib/sql.php";
 
-$available_modules = array("auth", "kunde", "auftrag");
+$available_modules = array("auth", "kunde", "vorgang");
 
 /* routing */
 
