@@ -217,8 +217,8 @@ function vorgang_aendern($data, $admin = false)
     $vorgang['revision'] += 1;
 
     db_query("START TRANSACTION");
-    db_query("INSERT INTO vorgang (handle, revision, status, anlieferdatum, produktionsdatum, kundennr, kundenrevision, bestellung_json, json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", array(
-            $vorgang['handle'], $vorgang['revision'], $status, $vorgang["status"]["angeliefert"], $vorgang["status"]["abgefuellt"], $vorgang['kundennr'], $vorgang['kundenrevision'], json_encode($vorgang['bestellung']), json_encode($vorgang)));
+    db_query("INSERT INTO vorgang (handle, revision, status, erstellt, anlieferdatum, produktionsdatum, kundennr, kundenrevision, bestellung_json, json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", array(
+            $vorgang['handle'], $vorgang['revision'], $status, date('Y-m-d H:i:s', $vorgang['erstellt']), $vorgang["status"]["angeliefert"], $vorgang["status"]["abgefuellt"], $vorgang['kundennr'], $vorgang['kundenrevision'], json_encode($vorgang['bestellung']), json_encode($vorgang)));
     $id = db_insert_id();
     db_query("UPDATE vorgang SET aktuell=0 WHERE handle=? AND id != ?", array($vorgang['handle'], $id));
     db_query("COMMIT");
@@ -232,7 +232,7 @@ function post_vorgang_liste($path, $data)
     api_require_role(4);
 
     $ret = array(
-        "auftraege" => array(),
+        "vorgaenge" => array(),
         "produktion" => array(),
         );
     if (isset($data['ziel'])) {
@@ -242,7 +242,7 @@ function post_vorgang_liste($path, $data)
             $aresult = db_query("SELECT json FROM vorgang WHERE aktuell=1 AND handle=?",
                 array($row['handle']));
             $a = $aresult->fetch();
-            $ret["auftraege"][] = json_decode($a['json'], true);
+            $ret["vorgaenge"][] = json_decode($a['json'], true);
             $ret["produktion"][$row['handle']] = array("position" => $row['position'], "eingebucht" => $row['eingebucht']);
         }
 
@@ -252,7 +252,7 @@ function post_vorgang_liste($path, $data)
 
         $result = db_query("SELECT json FROM vorgang WHERE aktuell=1 AND ".$sqlfilter.' '.$sorting, $sqlfilter_params);
         while ($a = $result->fetch()) {
-            $ret["auftraege"][] = json_decode($a['json'], true);
+            $ret["vorgaenge"][] = json_decode($a['json'], true);
         }
     } else {
         

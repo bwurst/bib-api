@@ -102,7 +102,7 @@ function post_kunde_neu($path_data, $data)
     db_query("UPDATE kunde SET kundennr=?, vorname=?, nachname=?, firma=?, json=? WHERE id=?", array($kunde["kundennr"], $kunde["vorname"], $kunde["nachname"], $kunde["firma"], json_encode($kunde), $id));
     db_query("COMMIT");
 
-    return $kunde;
+    return array("kunde" => $kunde);
 
 }
 
@@ -206,7 +206,29 @@ function post_kunde_laden($path, $data)
     return $ret;
 }
 
-
+function post_kunde_suchen($path, $data)
+{
+    api_require_role(4); // FIXME: Konstanten!
+    $ret = array();
+    if (!$data['name']) {
+        api_send_error(404, 'no search string');
+    }
+    $nummer = (int) $data['name'];
+    if ($nummer !== $data['name']) {
+        $nummer = null;
+    }
+    $kundennrn = array();
+    $name = '%'.$data['name'].'%';
+    $result = db_query("SELECT DISTINCT json FROM kunde AS k LEFT JOIN kundenkontakt AS kk ON (kk.kunde=k.id) WHERE aktuell=1 AND kundennr=? OR firma LIKE ? OR vorname LIKE ? OR nachname LIKE ? OR kk.wert LIKE ? ORDER BY k.nachname", array($nummer, $name, $name, $name, $name));
+    while ($line = $result->fetch()) {
+        $k = json_decode($line['json'], true);
+        if (!in_array($k['kundennr'], $kundennrn)) {
+            $ret[] = $k;
+            $kundennrn[] = $k['kundennr'];
+        }
+    }
+    return array('kunden' => $ret);
+}
 
 
 function kunde_laden($kundennr) 
@@ -216,7 +238,6 @@ function kunde_laden($kundennr)
     $kunde = json_decode($row['json'], true);
     return $kunde;
 }
-
 
 
 function kunde_aendern($neu) 
