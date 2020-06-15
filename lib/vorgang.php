@@ -112,14 +112,14 @@ function post_vorgang_anlieferung($path, $data)
         das gilt auch als Authentifizierung bei Änderungen für diesen Vorgang.
     */
     // FIXME: hier sollten nicht alle Änderungen erlaubt sein
-    vorgang_aendern($data);
+    return vorgang_aendern($data);
 }
 
 
 function post_vorgang_aendern($path, $data)
 {
     api_require_role(4); // FIXME: Konstanten
-    vorgang_aendern($data);
+    return vorgang_aendern($data, true);
 }
 
 
@@ -223,6 +223,7 @@ function vorgang_aendern($data, $admin = false)
     db_query("UPDATE vorgang SET aktuell=0 WHERE handle=? AND id != ?", array($vorgang['handle'], $id));
     db_query("COMMIT");
     db_query("UNLOCK TABLES");
+    return array("vorgang" => $vorgang);
 }
 
 

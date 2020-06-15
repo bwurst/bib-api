@@ -7,16 +7,12 @@ define("ROOT_PATH", __DIR__ . '/');
 
 include ROOT_PATH . "vendor/autoload.php";
 require_once ROOT_PATH."lib/api.php";
+require_once ROOT_PATH."lib/debug.php";
 require_once ROOT_PATH."lib/sql.php";
 
 $available_modules = array("auth", "kunde", "vorgang");
 
 /* routing */
-
-if (false) {
-    print_r($_SERVER);
-    die();
-}
 
 $BASE="/api/v1";
 $target = substr($_SERVER['REQUEST_URI'], strlen($BASE) + 1);
@@ -52,6 +48,7 @@ if (count($components) > 2) {
 $data = null;
 if (isset($_SERVER["CONTENT_TYPE"]) && $_SERVER["CONTENT_TYPE"] == 'application/json') {
     $data = json_decode(file_get_contents('php://input'), true);
+    DEBUG($data);
 }
 
 

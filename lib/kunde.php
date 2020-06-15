@@ -1,6 +1,7 @@
 <?php
 
 require_once ROOT_PATH.'lib/sql.php';
+require_once ROOT_PATH.'lib/debug.php';
 
 
 function telefonnummer($number, $country = "DE")
@@ -231,6 +232,16 @@ function post_kunde_suchen($path, $data)
 }
 
 
+function post_kunde_aendern($path, $data)
+{
+    api_require_role(4); // FIXME: Konstanten!
+    $ret = array();
+    $kunde = $data['kunde'];
+    $ret['kunde'] = kunde_aendern($kunde);
+    return $ret;
+}
+
+
 function kunde_laden($kundennr) 
 {
     $result = db_query("SELECT json FROM kunde WHERE kundennr=? AND aktuell=1", array($kundennr));
@@ -244,38 +255,57 @@ function kunde_aendern($neu)
 {
     $aenderungen = false;
     $kunde = kunde_laden($neu['kundennr']);
+    DEBUG($kunde);
     $fields = array("firma", "vorname", "nachname", "adresse", "plz", "ort", "bio", "biokontrollstelle", "notizen", "uuid");
     foreach ($fields as $key) {
-        if ($neu[$field] != $kunde[$field]) {
-            $kunde[$field] = $neu[$field];
+        DEBUG("pruefe Feld $key: ".$kunde[$key]." == ".$neu[$key]."?");
+        if ($neu[$key] != $kunde[$key]) {
+            DEBUG('Feld '.$key.': '.$kunde[$key].' => '.$neu[$key]);
+            $kunde[$key] = $neu[$key];
             $aenderungen = true;
         }
     }
     if (count($neu['kontakt']) != count($kunde['kontakt'])) {
+        DEBUG('Kontakt-Anzahl unterschiedlich');
         $aenderungen = true;
     }
     foreach ($neu['kontakt'] as $idx => $kontakt) {
+        if (!array_key_exists($idx, $kunde['kontakt'])) {
+            $kunde['kontakt'][$idx] = array();
+        }
         foreach (array("typ", "wert", "notizen") as $field) {
             if ($kunde['kontakt'][$idx][$field] != $kontakt[$field]) {
                 $aenderungen = true;
+                DEBUG('Änderung bei Kontakt #'.$idx);
             }
+        }
+    }
+    foreach ($kunde['kontakt'] as $idx => $kontakt) {
+        if (!array_key_exists($idx, $neu['kontakt'])) {
+            unset($kunde['kontakt'][$idx]);
+            $aenderungen = true;
+            DEBUG("Kontakt #$idx entfernt");
         }
     }
 
     if ($aenderungen) {
-        $neu['revision'] = $kunde['revision'] + 1;
+        DEBUG("Speichere neue Revision");
+        $kunde['revision'] = $kunde['revision'] + 1;
         db_query("START TRANSACTION");
-        db_query("INSERT INTO kunde (uuid, kundennr, revision, vorname, nachname, firma, json) VALUES (?, ?, ?, ?, ?, ?, ?)", array($neu["uuid"], $neu['kundennr'], $neu['revision'], $neu['vorname'], $neu['nachname'], $neu['firma'], json_encode($neu)));
+        db_query("INSERT INTO kunde (uuid, kundennr, revision, vorname, nachname, firma, json) VALUES (?, ?, ?, ?, ?, ?, ?)", array($kunde["uuid"], $kunde['kundennr'], $kunde['revision'], $kunde['vorname'], $kunde['nachname'], $kunde['firma'], json_encode($kunde)));
         $id = db_insert_id();
 
-        foreach ($neu["kontakt"] as $k) {
+        foreach ($kunde["kontakt"] as $k) {
             db_query("INSERT INTO kundenkontakt (kunde, typ, wert, notizen) VALUES (?, ?, ?, ?)", array($id, $k["typ"], $k["wert"], $k["notizen"]));
             $k["id"] = db_insert_id();
         }
 
-        db_query("UPDATE kunde SET aktuell=0 WHERE kundennr=? AND id!=?", array($neu["kundennr"], $id));
+        db_query("UPDATE kunde SET aktuell=0 WHERE kundennr=? AND id!=?", array($kunde["kundennr"], $id));
         db_query("COMMIT");
+    } else {
+        DEBUG('nichts geändert');
     }
+    return $kunde;
 }
 
 
